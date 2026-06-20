@@ -1,3 +1,3 @@
 export default function Stats() {
-  return <div className="p-4 text-white">Estatísticas — em breve</div>;
+    return <div className="p-4 text-white">Estatísticas — em breve</div>;
 }
