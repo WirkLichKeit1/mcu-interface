@@ -12,7 +12,7 @@ export default function Timeline() {
     const [progress, setProgress] = useState<Progress[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [togglingId, setTogglingId] = useState<number | null>(null);
+    const [toggling, setToggling] = useState<Set<number>>(new Set());
     const [hideOptional, setHideOptional] = useState(false);
 
     const loadData = useCallback(async () => {
@@ -35,7 +35,16 @@ export default function Timeline() {
         loadData();
     }, [loadData]);
 
+    // Progress for series-level content_ids (used by EraSection watched count)
     const progressMap = useMemo(() => {
+        const map = new Map<number, Progress>();
+        progress.forEach((p) => map.set(p.content_id, p));
+        return map;
+    }, [progress]);
+
+    // Progress for episode content_ids (passed to TimelineItem accordions)
+    // The backend's GET /marathons/{id}/progress now includes episode rows too
+    const episodeProgress = useMemo(() => {
         const map = new Map<number, Progress>();
         progress.forEach((p) => map.set(p.content_id, p));
         return map;
@@ -53,7 +62,7 @@ export default function Timeline() {
     }, [items, hideOptional]);
 
     async function handleToggle(contentId: number, currentlyWatched: boolean) {
-        setTogglingId(contentId);
+        setToggling((prev) => new Set(prev).add(contentId));
         try {
             const updated = await markWatched(contentId, !currentlyWatched);
             setProgress((prev) => {
@@ -64,7 +73,11 @@ export default function Timeline() {
         } catch {
             setError("Não foi possível atualizar o progresso.");
         } finally {
-            setTogglingId(null);
+            setToggling((prev) => {
+                const next = new Set(prev);
+                next.delete(contentId);
+                return next;
+            });
         }
     }
 
@@ -100,9 +113,7 @@ export default function Timeline() {
                 </button>
             </div>
 
-            {error && (
-                <p className="text-red-400 text-sm mb-4">{error}</p>
-            )}
+            {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
 
             <div className="space-y-6">
                 {Array.from(itemsByEra.entries()).map(([eraName, eraItems]) => (
@@ -111,8 +122,9 @@ export default function Timeline() {
                         eraName={eraName}
                         items={eraItems}
                         progressMap={progressMap}
+                        episodeProgress={episodeProgress}
                         onToggle={handleToggle}
-                        togglingId={togglingId}
+                        toggling={toggling}
                     />
                 ))}
             </div>

@@ -1,5 +1,13 @@
 export type ContentType = "movie" | "series" | "episode" | "special" | "one_shot";
 
+export interface Episode {
+    id: number;
+    title: string;
+    episode_number: number;
+    runtime: number | null;
+    parent_id: number;
+}
+
 export interface Universe {
     id: number;
     name: string;

@@ -63,6 +63,10 @@ export function getNext(
     return request(`/marathons/${marathon_id}/next${qs}`);
 }
 
+export function getEpisodes(content_id: number): Promise<import("@/types").Episode[]> {
+    return request(`/contents/${content_id}/episodes`);
+}
+
 // --- Progress ---
 
 export function getProgress(marathon_id: number): Promise<Progress[]> {

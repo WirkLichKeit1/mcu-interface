@@ -5,16 +5,18 @@ interface EraSectionProps {
     eraName: string;
     items: MarathonItemDetail[];
     progressMap: Map<number, Progress>;
+    episodeProgress: Map<number, Progress>;
     onToggle: (contentId: number, currentlyWatched: boolean) => void;
-    togglingId: number | null;
+    toggling: Set<number>;
 }
 
 export default function EraSection({
     eraName,
     items,
     progressMap,
+    episodeProgress,
     onToggle,
-    togglingId,
+    toggling,
 }: EraSectionProps) {
     const watchedCount = items.filter((i) => progressMap.get(i.content_id)?.watched).length;
 
@@ -33,8 +35,9 @@ export default function EraSection({
                         key={item.id}
                         item={item}
                         progress={progressMap.get(item.content_id)}
+                        episodeProgress={episodeProgress}
                         onToggle={onToggle}
-                        toggling={togglingId === item.content_id}
+                        toggling={toggling}
                     />
                 ))}
             </div>
