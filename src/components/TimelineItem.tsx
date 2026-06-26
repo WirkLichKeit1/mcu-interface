@@ -23,7 +23,7 @@ export default function TimelineItem({
     const [episodes, setEpisodes] = useState<Episode[]>([]);
     const [loadingEps, setLoadingEps] = useState(false);
 
-    // Load episodes on first expand
+    // Load full episode list on first expand
     useEffect(() => {
         if (!expanded || !isSeries || episodes.length > 0) return;
         setLoadingEps(true);
@@ -32,6 +32,7 @@ export default function TimelineItem({
             .finally(() => setLoadingEps(false));
     }, [expanded, isSeries, item.content_id, episodes.length]);
 
+    // ── Non-series (movie / special / one-shot) ─────────────────────────────
     if (!isSeries) {
         const watched = progress?.watched ?? false;
         return (
@@ -64,14 +65,29 @@ export default function TimelineItem({
         );
     }
 
-    // --- Series accordion ---
-    const watchedCount = episodes.filter((ep) => episodeProgress.get(ep.id)?.watched).length;
-    const totalCount = episodes.length;
-    const allWatched = totalCount > 0 && watchedCount === totalCount;
+    // ── Series accordion ─────────────────────────────────────────────────────
+    //
+    // Use episode_ids from the item payload to compute watched state immediately
+    // (no need to wait for the lazy episode fetch to open the accordion).
+    const episodeIds = item.episode_ids;
+    const episodeCount = item.episode_count;
+
+    // Count how many of this series' episodes are marked watched
+    const watchedCount = episodeIds.filter(
+        (id) => episodeProgress.get(id)?.watched
+    ).length;
+
+    const allWatched = episodeCount > 0 && watchedCount === episodeCount;
     const someWatched = watchedCount > 0 && !allWatched;
 
+    // Display counter: prefer loaded episodes length for accuracy, fall back to payload
+    const displayTotal = episodes.length > 0 ? episodes.length : episodeCount;
+    const displayWatched = episodes.length > 0
+        ? episodes.filter((ep) => episodeProgress.get(ep.id)?.watched).length
+        : watchedCount;
+
     function handleSeasonToggle() {
-        // Mark all episodes watched/unwatched at once
+        if (episodes.length === 0) return; // can't toggle without IDs
         const targetWatched = !allWatched;
         episodes.forEach((ep) => {
             const currentlyWatched = episodeProgress.get(ep.id)?.watched ?? false;
@@ -81,21 +97,42 @@ export default function TimelineItem({
         });
     }
 
+    // If accordion isn't open yet and user clicks the season checkbox,
+    // we need the episode list — load it eagerly in that case.
+    async function handleSeasonCheckboxClick() {
+        if (episodes.length === 0 && !loadingEps) {
+            setLoadingEps(true);
+            const loaded = await getEpisodes(item.content_id);
+            setEpisodes(loaded);
+            setLoadingEps(false);
+            // toggle will fire after state update via the episodes-aware handleSeasonToggle
+            const targetWatched = !allWatched;
+            loaded.forEach((ep) => {
+                const currentlyWatched = episodeProgress.get(ep.id)?.watched ?? false;
+                if (currentlyWatched !== targetWatched) {
+                    onToggle(ep.id, currentlyWatched);
+                }
+            });
+        } else {
+            handleSeasonToggle();
+        }
+    }
+
     return (
         <div className={`rounded-xl border overflow-hidden ${item.canonical ? "border-border" : "border-border/60"}`}>
-            {/* Season header row */}
+            {/* Season header */}
             <div className={`flex items-center gap-2 px-3 py-3 ${allWatched ? "bg-surface-2" : "bg-surface-1"}`}>
-                {/* Season-level checkbox — only active when episodes are loaded */}
+                {/* Season-level checkbox */}
                 <button
-                    onClick={handleSeasonToggle}
-                    disabled={episodes.length === 0 || toggling.size > 0}
+                    onClick={handleSeasonCheckboxClick}
+                    disabled={loadingEps || toggling.size > 0}
                     className="flex-shrink-0 disabled:opacity-40"
-                    aria-label={allWatched ? "Marcar temporada como não assistida" : "Marcar temporada como assistida"}
+                    aria-label={allWatched ? "Desmarcar temporada" : "Marcar temporada como assistida"}
                 >
                     <CheckCircle watched={allWatched} indeterminate={someWatched} />
                 </button>
 
-                {/* Title + badge — clicking expands */}
+                {/* Title row — clicking expands */}
                 <button
                     onClick={() => setExpanded((v) => !v)}
                     className="flex-1 min-w-0 text-left flex items-center gap-2"
@@ -111,9 +148,9 @@ export default function TimelineItem({
                                     opcional
                                 </span>
                             )}
-                            {totalCount > 0 && (
+                            {displayTotal > 0 && (
                                 <span className="text-[11px] text-muted">
-                                    {watchedCount}/{totalCount} eps
+                                    {displayWatched}/{displayTotal} eps
                                 </span>
                             )}
                         </div>
@@ -121,14 +158,9 @@ export default function TimelineItem({
 
                     {/* Chevron */}
                     <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
+                        width="16" height="16" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" strokeWidth="2"
+                        strokeLinecap="round" strokeLinejoin="round"
                         className={`flex-shrink-0 text-muted transition-transform ${expanded ? "rotate-180" : ""}`}
                     >
                         <polyline points="6 9 12 15 18 9" />
@@ -136,7 +168,7 @@ export default function TimelineItem({
                 </button>
             </div>
 
-            {/* Episode list */}
+            {/* Episode list (lazy) */}
             {expanded && (
                 <div className="border-t border-border/50 bg-surface-1/40">
                     {loadingEps ? (

@@ -55,6 +55,8 @@ export interface MarathonItem {
 export interface MarathonItemDetail extends MarathonItem {
     content: Content;
     era: Era | null;
+    episode_count: number;    // 0 for non-series
+    episode_ids: number[];    // ordered episode content IDs: [] for non-series
 }
 
 export interface Progress {
