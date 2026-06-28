@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import { getNext, getStats, markWatched } from "@/services/api";
+import { getNextItem, getStats, markWatched } from "@/services/api";
 import NextItemCard from "@/components/NextItemCard";
 import StatsSummary from "@/components/StatsSummary";
 import type { NextItem, Stats } from "@/types";
@@ -21,7 +21,7 @@ export default function Dashboard() {
         setFinished(false)
         try {
             const [nextData, statsData] = await Promise.all([
-                getNext(id).catch((err: Error) => {
+                getNextItem(id).catch((err: Error) => {
                     if (err.message.includes("No unwatched")) {
                         setFinished(true);
                         return null;
